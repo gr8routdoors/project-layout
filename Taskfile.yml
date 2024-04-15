@@ -9,7 +9,7 @@ vars:
 includes:
   # Task for building all go stuff
   go:
-    taskfile: ./build/ci/package/Go.yml
+    taskfile: ./build/package/tasks/Go.yml
     vars:
       # Example of setting a version at compile time (i.e. in a CI pipeline)
       GO_MODULE_LDFLAGS: "-X {{.GO_BASE_MODULE}}/cmd/version.CliVersion={{.VERSION}}"
@@ -17,7 +17,7 @@ includes:
 
   # Example of building a Go module
   internal:
-    taskfile: ./build/ci/package/GoBuild.yml
+    taskfile: ./build/package/tasks/GoBuild.yml
     vars:
       GO_MODULE_BIN_NAME: internal.o
       GO_MODULE_NAME: internal
@@ -25,11 +25,11 @@ includes:
     aliases: [i]
 
   # kafka:
-  #   taskfile: ./build/ci/package/Kafka.yml
+  #   taskfile: ./build/package/tasks/Kafka.yml
   #   aliases: [k]
 
   # kafka-connect:
-  #   taskfile: ./build/ci/package/KafkaConnect.yml
+  #   taskfile: ./build/package/tasks/KafkaConnect.yml
   #   aliases: [kc]
 
 tasks:

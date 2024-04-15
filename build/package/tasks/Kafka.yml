@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  KAFKA_BOOTSTRAP_SERVERS: '{{default "localhost:9092" .KAFKA_SECURITY_PROTOCOL}}'
+  KAFKA_SECURITY_PROTOCOL: '{{default "PLAINTEXT" .KAFKA_SECURITY_PROTOCOL}}'
+
+tasks:
+  partitions:
+    desc: Gets the total partitions count of the Kafka cluster for a given deployment scope. If the properties file does not exist, you should run `hub:write-kafka-config`
+    cmds:
+      - "kafka-topics --describe --bootstrap-server {{.KAFKA_BOOTSTRAP_SERVERS}} --command-config build/package/tasks/kafka/{{.KAFKA_SECURITY_PROTOCOL}}.properties | awk -F'PartitionCount: ' '/PartitionCount:/ {gsub(/ /, \"\", $2); sum += $2} END {print \"Total partitions in the cluster: \" sum}'"
+
+  create-topic:
+    desc: 'Create a topic in the specified hub. If the properties file does not exist, you should run `hub:write-kafka-config`.  Usage: kafka:create-topic -- <squadron.division.hub> <topic_name>'
+    vars: 
+      TOPIC_NAME:
+        sh: echo "{{(split " " .CLI_ARGS)._0}}"
+    cmds: 
+      - "kafka-topics --bootstrap-server {{.KAFKA_BOOTSTRAP_SERVERS}} --command-config build/package/tasks/kafka/{{.KAFKA_SECURITY_PROTOCOL}}.properties --topic {{.TOPIC_NAME}} --create"
+
+  delete-topic:
+    desc: 'Delete a topic in the specified hub. If the properties file does not exist, you should run `hub:write-kafka-config`.  Usage: kafka:create-topic -- <squadron.division.hub> <topic_name>'
+    vars: 
+      TOPIC_NAME:
+        sh: echo "{{(split " " .CLI_ARGS)._0}}"
+    cmds: 
+      - "kafka-topics --bootstrap-server {{.KAFKA_BOOTSTRAP_SERVERS}} --command-config build/package/tasks/kafka/{{.KAFKA_SECURITY_PROTOCOL}}.properties --topic {{.TOPIC_NAME}} --delete"
+
+  ux:
+    desc: 'Starts and opens Redpandas Kafka UX for the given hub.  Usage: kafka:ux -- <squadron.division.hub>'
+    vars:
+      KAFKA_UX_PORT: '{{default "9000" .KAFKA_UX_PORT}}'
+    cmds:
+    - cmd: 'echo Starting Kafka UX, open http://localhost:{{.KAFKA_UX_PORT}} in your browser'
+      silent: true
+    - cmd: 'docker run -p {{.KAFKA_UX_PORT}}:8080 -e KAFKA_BROKERS={{.KAFKA_BOOTSTRAP_SERVERS}} -e KAFKA_TLS_ENABLED={{- if eq .KAFKA_SECURITY_PROTOCOL "tls"}}true{{- else}}false{{- end}} docker.redpanda.com/redpandadata/console:latest'
