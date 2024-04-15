@@ -1,0 +1,117 @@
+# Tasks for building go modules
+version: '3'
+
+vars:
+  CGO_ENABLED: '{{default 0 .CGO_ENABLED}}'
+  GOOS: '{{default OS .GOOS}}'
+  GOARCH: '{{default ARCH .GOARCH}}'
+  GO_MODULE_BIN_NAME: '{{default "all" .GO_MODULE_BIN_NAME}}'
+  GO_MODULE_LDFLAGS: '{{default "" .GO_MODULE_LDFLAGS}}'
+  GO_MODULE_NAME: '{{default "all" .GO_MODULE_NAME}}'
+  GO_MODULE_PATH: '{{default "./..." .GO_MODULE_PATH}}'
+  GO_MODULE_BUILD_SCRIPT: '{{default "" .GO_MODULE_BUILD_SCRIPT}}'
+  GO_MODULE_COVERAGE_RAW: 'coverage_{{.GO_MODULE_NAME}}.raw'
+  GO_MODULE_COVERAGE_TOTAL: 'coverage_{{.GO_MODULE_NAME}}.total'
+  GO_TEST_MIN_COVERAGE: '{{default "89" .GO_TEST_MIN_COVERAGE}}'
+  GO_TEST_IGNORE_FILES: '{{default "_test_utils.go" .GO_TEST_IGNORE_FILES}}'
+
+tasks:
+  build-linux:
+    desc: Builds the {{.GO_MODULE_NAME}} Go module for linux/amd64
+    cmds:
+      - task: build
+        vars: { GOOS: "linux", GOARCH: "amd64" }
+
+  build:
+    desc: Builds the {{.GO_MODULE_NAME}} Go module
+    cmds:
+      - echo "Building {{.GO_MODULE_NAME}} version {{.VERSION}} for {{.GOOS}}/{{.GOARCH}}"
+      - go generate {{.GO_MODULE_PATH}}
+      - CGO_ENABLED={{.CGO_ENABLED}} GOOS={{.GOOS}} GOARCH={{.GOARCH}} go build -ldflags="{{.GO_MODULE_LDFLAGS}}" -o {{.GO_MODULE_BIN_NAME}} {{.GO_MODULE_PATH}}
+      - |
+        {{if ne .GO_MODULE_BUILD_SCRIPT ""}}
+        go run {{.GO_MODULE_BUILD_SCRIPT}}
+        {{end}}
+
+  clean:
+    desc: Cleans up {{.GO_MODULE_NAME}} binary build files
+    cmds:
+      - go clean
+      - go clean -testdeps
+      - rm -rf dist/ 2>/dev/null || exit 0
+      - rm {{.GO_MODULE_BIN_NAME}} 2>/dev/null || exit 0
+      - rm {{.GO_MODULE_COVERAGE_RAW}} 2>/dev/null || exit 0
+      - rm {{.GO_MODULE_COVERAGE_TOTAL}} 2>/dev/null || exit 0
+
+  test:
+    desc: Run quick tests on the {{.GO_MODULE_NAME}} Go module.  (Use verify to check coverage and race conditions.)
+    cmds:
+      - go generate {{.GO_MODULE_PATH}}
+      - go test {{.GO_MODULE_PATH}}/...
+
+  coverage-gen:
+    desc: Display test coverage for {{.GO_MODULE_NAME}}
+    internal: true
+    cmds:
+      - go generate {{.GO_MODULE_PATH}}
+      - go test -race -coverprofile={{.GO_MODULE_COVERAGE_RAW}}.tmp {{.GO_MODULE_PATH}}/...
+      - cat {{.GO_MODULE_COVERAGE_RAW}}.tmp | grep -E -v "{{.GO_TEST_IGNORE_FILES}}" > {{.GO_MODULE_COVERAGE_RAW}}
+      - rm {{.GO_MODULE_COVERAGE_RAW}}.tmp 2>/dev/null || exit 0
+  coverage:
+    desc: Checks {{.GO_MODULE_NAME}} test coverage to make sure it meets {{.GO_TEST_MIN_COVERAGE}}%
+    cmds:
+      - task: coverage-gen
+      - go tool cover -func={{.GO_MODULE_COVERAGE_RAW}} | grep total | awk '{print substr($3, 1, length($3) - 1)}' >{{.GO_MODULE_COVERAGE_TOTAL}}
+      - echo "`cat {{.GO_MODULE_COVERAGE_TOTAL}}` >= {{.GO_TEST_MIN_COVERAGE}}" | bc -l | read passed; if [ $passed == "0" ]; then echo "Failed to meet min test coverage - `cat {{.GO_MODULE_COVERAGE_TOTAL}}` < {{.GO_TEST_MIN_COVERAGE}}%"; exit 1; else echo "Passed coverage at `cat {{.GO_MODULE_COVERAGE_TOTAL}}`%"; fi
+  coverage-html:
+    desc: Display test coverage for {{.GO_MODULE_NAME}}
+    cmds:
+      - task: coverage-gen
+      - go tool cover -html={{.GO_MODULE_COVERAGE_RAW}}
+
+  install-tools:
+    desc: Installs Go build utilities
+    vars:
+      ARCH:
+        sh: 'uname -m'
+    cmds:
+      - echo ==== Installing Go utilities ====
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install github.com/goreleaser/goreleaser@latest
+
+  lint:
+    desc: Runs Go syntax quality checks
+    cmds:
+      - golangci-lint run
+
+  run:
+    desc: Runs the {{.GO_MODULE_NAME}} module
+    cmds:
+      - go run {{.GO_MODULE_PATH}}/main.go {{.CLI_ARGS}}
+
+  snapshot:
+    desc: "Builds local release snapshot binaries of Go modules. Should be integrated into a CI pipeline"
+    cmds:
+      - goreleaser release --snapshot --rm-dist
+
+  tidy:
+    desc: Tidy up Go requires and vendor modules
+    cmds:
+      - go mod tidy
+      - go mod vendor
+
+  verify:
+    desc: Verifies the {{.GO_MODULE_NAME}} module by running all appropriate source code checks.  Devs - use this!
+    cmds:
+      - task: coverage
+      - task: lint
+
+  upgrade-deps:
+    desc: Upgrade go module dependencies
+    cmds:
+      - go get -u {{.GO_MODULE_PATH}}
+      - go get -t -u {{.GO_MODULE_PATH}}
+      - go mod vendor
+      - go mod tidy
+      - go test all

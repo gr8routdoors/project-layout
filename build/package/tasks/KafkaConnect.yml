@@ -1,0 +1,39 @@
+# Contains a few Kafka Connect utilities.
+version: '3'
+
+vars:
+  KC_URL: '{{default "http://localhost:8090" .GOARCH}}'
+
+tasks:
+  install-tools:
+    desc: Installs build utilities.
+    cmds:
+      - "echo '==== Installing Kafka connect-cli ===='"
+      - "echo 'Enter your password for sudo below'"
+      - sudo curl -L -o /usr/local/bin/connect-cli https://github.com/lensesio/kafka-connect-tools/releases/download/v1.0.9/connect-cli
+      - sudo chmod +x /usr/local/bin/connect-cli
+
+  status:
+    desc: 'Displays the running Kafka Connectors for a given cluster'
+    cmds:
+    - cmd: 'echo "### Running Connectors:"'
+      silent: true
+    - cmd: 'connect-cli ps -e {{.KC_URL}}/'
+      silent: true
+    - cmd: 'echo "### Available Plugins:"'
+      silent: true
+    - cmd: 'connect-cli plugins -e {{.KC_URL}}/'
+      silent: true
+    - cmd: 'echo "### Connector Statuses:"'
+      silent: true
+    - cmd: 'curl {{.KC_URL}}/connectors?expand=status | jq'
+      silent: true
+
+  ux:
+    desc: 'Open the kafka connect UX for the given hub.  Usage: kc:ux -- <squadron.division.hub>'
+    vars:
+      KC_UX_PORT: '{{default "8080" .KC_UX_PORT}}'
+    cmds:
+    - cmd: 'echo Starting Kafka Connect UX, open http://localhost:{{.UX_PORT}} in your browser'
+      silent: true
+    - cmd: 'docker run --rm -it -p {{.KC_UX_PORT}}:8000 -e "CONNECT_URL={{.KC_URL}}" landoop/kafka-connect-ui'
