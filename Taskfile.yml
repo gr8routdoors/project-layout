@@ -1,0 +1,43 @@
+version: '3'
+
+env:
+  GO_BASE_MODULE: "github.com/your-project"
+
+vars:
+  # VERSION: '{{default "0.0.0" .VERSION}}'
+
+includes:
+  # Task for building all go stuff
+  go:
+    taskfile: ./build/ci/package/Go.yml
+    vars:
+      # Example of setting a version at compile time (i.e. in a CI pipeline)
+      GO_MODULE_LDFLAGS: "-X {{.GO_BASE_MODULE}}/cmd/version.CliVersion={{.VERSION}}"
+    aliases: [g]
+
+  # Example of building a Go module
+  internal:
+    taskfile: ./build/ci/package/GoBuild.yml
+    vars:
+      GO_MODULE_BIN_NAME: internal.o
+      GO_MODULE_NAME: internal
+      GO_MODULE_PATH: ./internal/...
+    aliases: [i]
+
+  # kafka:
+  #   taskfile: ./build/ci/package/Kafka.yml
+  #   aliases: [k]
+
+  # kafka-connect:
+  #   taskfile: ./build/ci/package/KafkaConnect.yml
+  #   aliases: [kc]
+
+tasks:
+  install-tools:
+    desc: Installs build utilities.  Make sure to add the deps appropriate for your project, and any general utility installs under cmds
+    deps: [go:install-tools]
+    cmds:
+      # - "echo '==== Installing YAML Query CLI (yq) ===='"
+      # - brew install yq
+      # - "echo '==== Installing JSON Query CLI (jq) ===='"
+      # - brew install jq

@@ -1,0 +1,47 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+before:
+  hooks:
+    # uncomment below if you need go generate
+    # - go generate ./...
+builds:
+  - env:
+      - CGO_ENABLED=0
+      - GORELEASER_CURRENT_TAG=v{{.Env.VERSION}}
+    main: ./main.go
+    goos:
+      - linux
+      - windows
+      - darwin
+    # uncomment and update module name below if you want dynamic versioning at build time
+    # ldflags:
+    #   - -X github.com/your-project/cmd/version.CliVersion={{.Env.VERSION}}
+
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+github_urls:
+  # update below URLs if you're using GHe
+  api: https://github.com/api/v3/
+  upload: https://github.com/api/uploads/
+  download: https://github.com/
+  # set to true if you use a self-signed certificate
+  skip_tls_verify: false
+
+# modelines, feel free to remove those if you don't want/use them:
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
